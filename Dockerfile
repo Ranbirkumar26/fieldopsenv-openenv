@@ -14,7 +14,7 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 # ── Defaults (override at runtime via -e flags) ────────────────────────────────
-ENV API_BASE_URL=https://api.openai.com/v1
+ENV API_BASE_URL=https://platform.openai.com/api-keys
 ENV MODEL_NAME=gpt-4o-mini
 ENV TASK_NAME=full_mission
 ENV MAX_STEPS=50
