@@ -27,4 +27,6 @@ COPY server.py    .
 
 RUN python -c "from env import FieldOpsEnv; from graders import TASK_GRADERS; print('Import check passed.')"
 
+EXPOSE 7860
+
 CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "7860"]
