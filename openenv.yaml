@@ -1,0 +1,230 @@
+name: FieldOpsEnv
+version: "1.0.0"
+
+description: >
+  FieldOpsEnv is a deterministic autonomous field robotics task environment
+  designed to benchmark decision-making agents in real-world operational
+  scenarios including disaster response, remote mine site inspection,
+  precision agriculture sampling, and infrastructure survey missions.
+
+  An autonomous ground robot must plan and execute a multi-phase mission:
+    1. Navigate structured terrain containing hazard zones.
+    2. Locate and collect a mission-critical resource or environmental sample.
+    3. Return the secured resource to the base station.
+
+  All operations are subject to a hard energy budget, making the environment
+  suitable for evaluating energy-aware autonomy and mission-planning strategies.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Observation space
+# ─────────────────────────────────────────────────────────────────────────────
+observation_space:
+  type: structured
+  schema: models.Observation
+  fields:
+    position:
+      type: "tuple[int, int]"
+      description: >
+        Current (row, col) coordinates of the robotic agent on the
+        5×5 terrain grid. Origin (0, 0) is the north-west corner.
+
+    grid:
+      type: "list[list[int]]"
+      shape: [5, 5]
+      encoding:
+        0: clear terrain
+        1: obstacle / hazard zone  (impassable)
+        2: resource / sample deposit
+        3: base station
+      description: Full terrain map snapshot delivered every step.
+
+    energy:
+      type: float
+      range: [0.0, 100.0]
+      description: >
+        Remaining operational energy of the robotic agent.
+        Depletes with each movement or action command.
+        Mission aborts with penalty if energy reaches zero.
+
+    has_resource:
+      type: bool
+      description: >
+        Indicates whether the agent has successfully collected the
+        mission resource/sample during the current episode.
+
+    resource_position:
+      type: "tuple[int, int]"
+      value: [2, 2]
+      description: Fixed grid coordinates of the resource deposit.
+
+    base_position:
+      type: "tuple[int, int]"
+      value: [0, 0]
+      description: Fixed grid coordinates of the base station.
+
+    step_count:
+      type: int
+      description: Number of decision steps elapsed in the current episode.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Action space
+# ─────────────────────────────────────────────────────────────────────────────
+action_space:
+  type: discrete
+  schema: models.Action
+  n_actions: 6
+  actions:
+    up:
+      description: Move agent one cell north (row − 1). Costs 1.0 energy.
+    down:
+      description: Move agent one cell south (row + 1). Costs 1.0 energy.
+    left:
+      description: Move agent one cell west (col − 1). Costs 1.0 energy.
+    right:
+      description: Move agent one cell east (col + 1). Costs 1.0 energy.
+    stay:
+      description: Hold current position. Costs 0.5 energy.
+    collect:
+      description: >
+        Attempt resource collection at current cell.
+        Valid only when standing on the resource deposit (2,2)
+        and resource has not yet been collected.
+        Costs 1.0 energy.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Reward space
+# ─────────────────────────────────────────────────────────────────────────────
+reward_space:
+  type: float
+  schema: models.Reward
+  range: [-57.2, 152.0]   # theoretical per-episode extremes
+  components:
+    step_penalty:
+      value: -0.2
+      trigger: every step
+      rationale: Operational cost; incentivises efficient mission planning.
+
+    approach_reward:
+      value: +2.0
+      trigger: movement reduces Manhattan distance to current objective
+      rationale: Shapes agent behaviour toward active goal pursuit.
+
+    retreat_penalty:
+      value: -1.0
+      trigger: movement increases Manhattan distance to current objective
+      rationale: Discourages aimless or backward movement.
+
+    collision_penalty:
+      value: -5.0
+      trigger: attempted movement into obstacle or grid boundary
+      rationale: Penalises poor terrain awareness.
+
+    collect_success:
+      value: +50.0
+      trigger: successful "collect" at resource deposit
+      rationale: Primary Phase 1 milestone reward.
+
+    collect_invalid:
+      value: -2.0
+      trigger: "collect" issued outside resource location or after collection
+      rationale: Discourages speculative / wasteful collect commands.
+
+    mission_success:
+      value: +100.0
+      trigger: agent reaches base station with resource secured
+      rationale: Primary mission completion reward.
+
+    energy_depletion:
+      value: -50.0
+      trigger: energy reaches or falls below zero
+      rationale: Hard penalty for mission abort due to energy exhaustion.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Tasks
+# ─────────────────────────────────────────────────────────────────────────────
+tasks:
+  - id: navigation
+    name: Navigation
+    difficulty: easy
+    max_steps: 20
+    grader: graders.grade_navigation
+    description: >
+      Navigate the robotic agent from the base station (0,0) to the
+      resource deposit (2,2) using the shortest viable path.
+      Score is weighted by final proximity, step efficiency, and collision count.
+    success_criteria: Agent position equals resource_position.
+    score_weights:
+      distance:   0.60
+      efficiency: 0.30
+      collisions: 0.10
+
+  - id: hazard_navigation
+    name: Hazard Navigation
+    difficulty: medium
+    max_steps: 30
+    grader: graders.grade_hazard_navigation
+    description: >
+      Navigate from the base station to the resource deposit while actively
+      avoiding all hazard zones. Collision avoidance and energy conservation
+      are weighted equally alongside proximity.
+    success_criteria: Agent reaches resource_position with minimal collisions.
+    score_weights:
+      distance:   0.40
+      collisions: 0.40
+      energy:     0.20
+
+  - id: full_mission
+    name: Full Autonomous Mission
+    difficulty: hard
+    max_steps: 50
+    grader: graders.grade_full_mission
+    description: >
+      Execute the complete field operations mission: navigate to the resource
+      deposit, collect the sample, and return to the base station before
+      the energy budget is exhausted. Partial credit is awarded for
+      resource collection without successful return.
+    success_criteria: >
+      has_resource == true AND position == base_position at episode end.
+    score_weights:
+      mission_success: 1.00  # base
+      efficiency_bonus: 0.15
+      energy_bonus:     0.10
+      collision_penalty: 0.25
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Environment configuration
+# ─────────────────────────────────────────────────────────────────────────────
+environment:
+  class: env.FieldOpsEnv
+  grid_size: 5
+  deterministic: true
+  initial_energy: 100.0
+  base_position: [0, 0]
+  resource_position: [2, 2]
+  fixed_obstacles:
+    - [0, 3]
+    - [1, 1]
+    - [2, 4]
+    - [3, 1]
+    - [4, 3]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Metadata
+# ─────────────────────────────────────────────────────────────────────────────
+metadata:
+  tags:
+    - robotics
+    - planning
+    - autonomy
+    - openenv
+    - field-operations
+    - resource-collection
+    - energy-constrained
+    - deterministic
+  domain: autonomous-robotics
+  framework: openenv
+  requires_gpu: false
+  min_cpu: 1
+  min_ram_gb: 1
+  python_version: ">=3.10"
+  license: MIT

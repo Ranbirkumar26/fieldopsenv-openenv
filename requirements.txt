@@ -1,0 +1,9 @@
+# FieldOpsEnv — Python dependencies
+# Minimal footprint for lightweight deployment (< 8 GB RAM, 2 vCPU)
+
+# Data validation and schema enforcement
+pydantic>=2.0.0
+
+# OpenAI-compatible API client (supports custom base_url for local/HF endpoints)
+openai>=1.0.0
+python-dotenv
