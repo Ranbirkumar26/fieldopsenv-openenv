@@ -245,8 +245,4 @@ def main() -> None:
     )
 
 
-if __name__ == "__main__":
-    # Prevent double execution in Hugging Face container
-    if os.environ.get("RUN_ONCE") != "1":
-        os.environ["RUN_ONCE"] = "1"
-        main()
+main()
