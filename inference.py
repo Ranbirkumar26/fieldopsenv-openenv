@@ -20,7 +20,7 @@ Output format (strict)
 ----------------------
 [START] task=<task_name> env=<env_name> model=<model_name>
 [STEP]  step=<n> action=<action> reward=<0.00> done=<true|false> error=<msg|null>
-[END]   success=<true|false> steps=<n> rewards=<r1,r2,...>
+[END]   success=<true|false> steps=<n> score=<score> rewards=<r1,r2,...>
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ from typing import List
 from openai import OpenAI
 
 from env import FieldOpsEnv, compute_distance, get_target
-from graders import TASK_MAX_STEPS
+from graders import TASK_MAX_STEPS, TASK_GRADERS
 from models import Action, Observation
 
 # Load environment variables from .env file (if present)
@@ -129,27 +129,15 @@ def _passable(row: int, col: int, grid: list) -> bool:
 def greedy_action(obs: Observation) -> str:
     """
     Deterministic greedy policy — no randomness, no LLM dependency.
-
-    Strategy
-    --------
-    Phase 1 (resource not collected):
-      Move toward resource deposit; issue "collect" when adjacent.
-    Phase 2 (resource collected):
-      Move toward base station.
-
-    Movement preference: primary axis toward target → secondary axis →
-    any unblocked cardinal direction → "stay" as last resort.
     """
     target = get_target(obs.has_resource, obs.resource_position, obs.base_position)
 
-    # Issue collect when standing on the resource
     if obs.position == obs.resource_position and not obs.has_resource:
         return "collect"
 
     row, col   = obs.position
     trow, tcol = target
 
-    # Primary-axis candidates toward target
     candidates: list = []
     if trow < row:
         candidates.append(("up",    (row - 1, col)))
@@ -165,7 +153,6 @@ def greedy_action(obs: Observation) -> str:
         if _passable(nr, nc, obs.grid):
             return action
 
-    # Fall back to any passable cardinal direction
     for action, (dr, dc) in [("up", (-1, 0)), ("down", (1, 0)),
                               ("left", (0, -1)), ("right", (0, 1))]:
         nr, nc = row + dr, col + dc
@@ -180,10 +167,6 @@ def greedy_action(obs: Observation) -> str:
 # ---------------------------------------------------------------------------
 
 def main() -> None:
-    # Initialise OpenAI-compatible client
-    # The LLM client is instantiated here per spec; the baseline policy is
-    # deterministic greedy.  LLM integration can be swapped in by replacing
-    # the greedy_action() call below with a prompt-based call to `client`.
     client = OpenAI(
         base_url=API_BASE_URL,
         api_key=HF_TOKEN,
@@ -236,11 +219,16 @@ def main() -> None:
             f"error={error_msg}"
         )
 
+    # ── Compute normalised score via the task grader ─────────────────────────
+    grader = TASK_GRADERS.get(TASK_NAME)
+    score: float = grader(FieldOpsEnv()) if grader else 0.0
+
     # ── END line ─────────────────────────────────────────────────────────────
     rewards_str = ",".join(f"{r:.2f}" for r in rewards)
     print(
         f"[END] success={'true' if success else 'false'} "
         f"steps={step} "
+        f"score={score:.3f} "
         f"rewards={rewards_str}"
     )
 
