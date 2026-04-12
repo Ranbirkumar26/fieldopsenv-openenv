@@ -139,7 +139,7 @@ def grade_navigation(env: FieldOpsEnv, max_steps: int = 20) -> float:
     if reached:
         score = max(score, 0.70)   # floor for successful navigation
 
-    return round(max(0.01, min(0.99, score)), 4)
+    return round(max(0.001, min(0.999, score)), 4)
 
 
 # ---------------------------------------------------------------------------
@@ -202,7 +202,7 @@ def grade_hazard_navigation(env: FieldOpsEnv, max_steps: int = 30) -> float:
     elif reached:
         score = max(score, 0.65)
 
-    return round(max(0.01, min(0.99, score)), 4)
+    return round(max(0.001, min(0.999, score)), 4)
 
 
 # ---------------------------------------------------------------------------
@@ -274,7 +274,7 @@ def grade_full_mission(env: FieldOpsEnv, max_steps: int = 50) -> float:
         progress         = max(0.0, 1.0 - dist_to_resource / max(1, max_res_dist))
         score = 0.35 * progress
 
-    return round(max(0.01, min(0.99, score)), 4)
+    return round(max(0.001, min(0.999, score)), 4)
 
 
 # ---------------------------------------------------------------------------
