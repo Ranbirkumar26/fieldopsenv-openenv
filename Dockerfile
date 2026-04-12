@@ -6,8 +6,6 @@ LABEL version="1.0.0"
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-
-# Correct API endpoint
 ENV API_BASE_URL=https://api.openai.com/v1
 ENV MODEL_NAME=gpt-4o-mini
 ENV TASK_NAME=full_mission
@@ -23,10 +21,10 @@ COPY env.py       .
 COPY graders.py   .
 COPY inference.py .
 COPY openenv.yaml .
-COPY server.py    .
+COPY server/      ./server/
 
 RUN python -c "from env import FieldOpsEnv; from graders import TASK_GRADERS; print('Import check passed.')"
 
 EXPOSE 7860
 
-CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "7860"]
+CMD ["uvicorn", "server.app:app", "--host", "0.0.0.0", "--port", "7860"]
