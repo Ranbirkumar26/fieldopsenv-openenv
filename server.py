@@ -2,12 +2,25 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from env import FieldOpsEnv
 from models import Action
+from graders import TASK_GRADERS, TASK_MAX_STEPS
 import subprocess
 import sys
 
 app = FastAPI()
 
 env = FieldOpsEnv()
+
+@app.get("/tasks")
+def list_tasks():
+    tasks = []
+    for task_id, grader in TASK_GRADERS.items():
+        score = grader(FieldOpsEnv())
+        tasks.append({
+            "id": task_id,
+            "max_steps": TASK_MAX_STEPS.get(task_id, 50),
+            "score": score,
+        })
+    return {"tasks": tasks}
 
 @app.get("/", response_class=HTMLResponse)
 def root():
