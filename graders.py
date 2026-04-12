@@ -137,7 +137,7 @@ def grade_navigation(env: FieldOpsEnv, max_steps: int = 20) -> float:
         - 0.10 * collision_penalty
     )
     if reached:
-        score = max(score, 0.70)   # floor for successful navigation
+        score = max(score, 0.65)   # floor for successful navigation
 
     return round(max(0.001, min(0.999, score)), 4)
 
@@ -198,9 +198,9 @@ def grade_hazard_navigation(env: FieldOpsEnv, max_steps: int = 30) -> float:
         + 0.20 * energy_score
     )
     if reached and collisions == 0:
-        score = max(score, 0.90)   # bonus for clean navigation
+        score = max(score, 0.85)   # bonus for clean navigation
     elif reached:
-        score = max(score, 0.65)
+        score = max(score, 0.60)
 
     return round(max(0.001, min(0.999, score)), 4)
 
@@ -257,7 +257,7 @@ def grade_full_mission(env: FieldOpsEnv, max_steps: int = 50) -> float:
         efficiency_bonus  = 0.15 * max(0.0, 1.0 - steps / max_steps)
         energy_bonus      = 0.10 * (obs.energy / initial_energy)
         collision_penalty = min(0.25, collisions * 0.05)
-        score = 1.0 + efficiency_bonus + energy_bonus - collision_penalty
+        score = 0.9 + efficiency_bonus + energy_bonus - collision_penalty
 
     elif resource_secured:
         # Partial: resource collected but not returned
